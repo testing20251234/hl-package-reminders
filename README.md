@@ -1,0 +1,58 @@
+# HL Package-Expiry Reminder Worklist
+
+A small staff web app for working package-expiry (and low-credit) reminders as a
+3-stage conveyor: **Precheck → Ready to send → Sent**. Replaces the Excel tracker —
+the database surfaces "what's due / what's at my station" live, which Excel couldn't.
+
+## Architecture
+
+```
+new Hapana export ─▶ pipeline (Python) ──upsert by Invoice#──▶ Supabase Postgres
+                                                               ├ reminder_packs   (ingest-owned facts)
+                                                               └ reminder_state   (staff edits — ingest never touches)
+                                                                       │
+                                                            reminder_worklist  (view: live days_left, union filter)
+                                                                       │
+                                                   index.html (this app, supabase-js + magic-link) ─▶ staff
+```
+
+- **Supabase project:** `sbh-attendence` (`geheirnfbhqnhrjmrrax`). *(Deliberately NOT the Stripe "Hapana Add on" project — that stays untouched.)*
+- **Auth:** Supabase magic-link (passwordless). Only authenticated staff can read/write (RLS). The publishable key in `index.html` is safe to expose.
+- **Hosting:** GitHub Pages (static single file).
+
+## Ingest / refresh (every ~2 weeks)
+
+The pipeline currently lives in the thinking-system session
+(`sessions/session-20260525-1029-package-expiry-reminders/`). Drop the new export +
+check-in CSV in `inbox/`, then run in order:
+
+```
+python3 ingest_ledger.py      # accumulate uploads, dedupe by Invoice#
+python3 compute_expiry.py     # estimate expiry from purchase + validity
+python3 compute_usage.py      # check-in usage proxy + low-credit flag
+python3 push_to_supabase.py   # UPSERT reminder_packs (creds from attendance-bot/.env)
+```
+
+Only `reminder_packs` is upserted; staff edits in `reminder_state` are never overwritten.
+
+## Deploy (one-time)
+
+1. **Push to GitHub** and enable Pages:
+   ```
+   gh repo create hl-package-reminders --private --source=. --remote=origin --push
+   gh api -X POST repos/:owner/hl-package-reminders/pages -f source.branch=main -f source.path=/
+   ```
+   Pages URL will be `https://<you>.github.io/hl-package-reminders/`.
+2. **Allow the magic-link redirect** — Supabase dashboard → Auth → URL Configuration:
+   - Site URL: the Pages URL above.
+   - Redirect URLs: add the Pages URL (and `http://localhost:*` if testing locally).
+3. Share the URL with staff. First visit → enter work email → click the emailed link → in.
+
+## Security notes
+- `anon`/unauthenticated users get **nothing** (RLS denies by default). Only `authenticated` staff can read/write — the right boundary for customer PII.
+- The `authenticated` policies are `USING(true)` on purpose: any signed-in staff member works the whole shared worklist. `checked_by` / `sent_by` auto-fill from the logged-in identity.
+- No service-role key is in this repo or the page; ingest uses the local `.env` only.
+
+## Low-credit caveat
+Credit counts are **estimated** from check-in counts (Hapana has no per-pack balance export),
+so low-credit messages use soft language ("down to your last session or two") — never a hard number.

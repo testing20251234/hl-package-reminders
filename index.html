@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Package Expiry Worklist · House Longevity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f1ea; --card:#fffdf9; --ink:#2a2018; --muted:#8a7c6c; --line:#e4d9c8;
+    --accent:#8b5a3c; --accent-soft:#f0e4d8; --red:#b4452f; --red-bg:#f6dcd4;
+    --amber:#b07d2a; --amber-bg:#f6e8cc; --green:#5d7a4f; --green-bg:#e6eddf;
+    --radius:15px; --serif:'Newsreader',Iowan,Charter,Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);
+       font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-size:26px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14.5px;margin:2px 0 18px}
+  .who{font-size:13.5px;color:var(--muted)}
+  .who a{cursor:pointer;text-decoration:underline}
+  button{font-family:var(--serif);cursor:pointer}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:14.5px}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+  .btn.sm{padding:5px 10px;font-size:13px;border-radius:8px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  /* tabs */
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+  .tab{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 15px;font-size:15px;color:var(--ink)}
+  .tab .n{display:inline-block;min-width:20px;margin-left:7px;padding:1px 7px;border-radius:20px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .tab.active .n{background:rgba(255,255,255,.25);color:#fff}
+  .filters{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:13.5px;color:var(--muted)}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:4px 12px;font-size:13px;color:var(--ink)}
+  .chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+  /* rows */
+  .row{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;
+       box-shadow:0 1px 2px rgba(139,90,60,.05);overflow:hidden}
+  .row-head{display:grid;grid-template-columns:74px 1fr auto;gap:14px;align-items:center;padding:13px 16px;cursor:pointer}
+  .days{text-align:center;border-radius:10px;padding:6px 4px;font-weight:600;background:var(--accent-soft);color:var(--accent);line-height:1.15}
+  .days small{display:block;font-size:11px;font-weight:400;color:var(--muted)}
+  .days.red{background:var(--red-bg);color:var(--red)} .days.amber{background:var(--amber-bg);color:var(--amber)}
+  .who-name{font-size:17px;font-weight:600}
+  .meta{font-size:13.5px;color:var(--muted);margin-top:1px}
+  .badge{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:20px;border:1px solid var(--line);margin-right:5px;vertical-align:middle}
+  .badge.expiry{background:var(--amber-bg);color:var(--amber);border-color:transparent}
+  .badge.low{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+  .badge.both{background:var(--red-bg);color:var(--red);border-color:transparent}
+  .stage-pill{font-size:12px;color:var(--muted);white-space:nowrap}
+  /* detail */
+  .detail{border-top:1px solid var(--line);padding:16px;display:none;background:#fffefb}
+  .detail.open{display:block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+  .fld label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .fld input,.fld select,.fld textarea{width:100%;font-family:var(--serif);font-size:14px;padding:7px 9px;
+       border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  .msg{background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;font-size:14px;white-space:pre-wrap;margin-bottom:12px}
+  .actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .stamp{font-size:12.5px;color:var(--muted)}
+  .wa{background:#1f8a4c;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:14.5px;text-decoration:none;display:inline-flex;gap:6px;align-items:center}
+  .empty{text-align:center;color:var(--muted);padding:50px 0;font-size:15px}
+  /* login */
+  .login{max-width:380px;margin:9vh auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:30px 28px;text-align:center;box-shadow:0 4px 16px rgba(139,90,60,.08)}
+  .login h2{font-weight:600;margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .login input{width:100%;padding:11px 13px;font-size:15px;font-family:var(--serif);border:1px solid var(--line);border-radius:10px;margin-bottom:11px}
+  .login .btn{width:100%}
+  .note{font-size:12.5px;color:var(--muted);margin-top:14px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div id="login" class="login hidden">
+  <h2>Package Expiry Worklist</h2>
+  <p>Staff sign-in. We'll email you a magic link — no password.</p>
+  <input id="email" type="email" placeholder="you@houselongevity.com" autocomplete="email">
+  <button class="btn" onclick="sendLink()">Email me a login link</button>
+  <div class="note" id="loginNote"></div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header>
+    <div>
+      <h1>Package Expiry Worklist</h1>
+      <div class="sub" id="sub">Loading…</div>
+    </div>
+    <div class="who">Signed in as <b id="userEmail"></b> · <a onclick="signOut()">sign out</a></div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="filters">
+    <span>Reason:</span>
+    <span class="chip active" data-reason="" onclick="setReason('')">All</span>
+    <span class="chip" data-reason="Expiry" onclick="setReason('Expiry')">Expiry</span>
+    <span class="chip" data-reason="Low-credit" onclick="setReason('Low-credit')">Low-credit</span>
+    <span class="chip" data-reason="Both" onclick="setReason('Both')">Both</span>
+    <span style="margin-left:auto"><button class="btn ghost sm" onclick="load()">↻ Refresh</button></span>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://geheirnfbhqnhrjmrrax.supabase.co";
+const SUPABASE_KEY = "sb_publishable_gA4Ag-16NUpoObMUqBU4RA_Xe0BrRwM";
+const REPLY = "8989 8525";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STAGES = ["1·Precheck","2·Ready to send","3·Sent","Skip"];
+const STATUS_OPTS = ["","Extended","Superseded","Already expired","Sessions used up","Cancelled/Refunded","Other"];
+const OUTCOME_OPTS = ["","Booked","Upgraded-20pack","Upgraded-membership","Not interested","No response","Wrong number"];
+const PACK_OPTS = ["","SBH First Timer","SBH 5-Pack","SBH 10-Pack","SBH 20-Pack","SBH 50-Pack","20-Pack $388","RLT 10-Pack","RLT 20-Pack","RLT 50-Pack","HBOT 5-Pack","HBOT 10-Pack","Off-Peak Unlimited","Full Unlimited","Other"];
+
+let ROWS = [], TAB = "1·Precheck", REASON = "", ME = "";
+
+/* ---------- auth ---------- */
+async function init(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(session){ showApp(session); } else { document.getElementById('login').classList.remove('hidden'); }
+  sb.auth.onAuthStateChange((_e,s)=>{ if(s){ showApp(s);} });
+}
+function showApp(session){
+  ME = session.user.email;
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('userEmail').textContent = ME;
+  load();
+}
+async function sendLink(){
+  const email = document.getElementById('email').value.trim();
+  if(!email) return;
+  const {error} = await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.href.split('#')[0]}});
+  document.getElementById('loginNote').textContent = error ? ("Error: "+error.message) : "✓ Check your inbox for the login link.";
+}
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+/* ---------- data ---------- */
+async function load(){
+  const {data,error} = await sb.from('reminder_worklist').select('*');
+  if(error){ toast("Load error: "+error.message); return; }
+  ROWS = data || [];
+  renderTabs(); render();
+}
+function count(stage){ return ROWS.filter(r=>r.stage===stage).length; }
+function renderTabs(){
+  const labels = {"1·Precheck":"1 · Precheck","2·Ready to send":"2 · Ready to send","3·Sent":"3 · Sent","Skip":"Skip"};
+  document.getElementById('tabs').innerHTML = STAGES.map(s=>
+    `<button class="tab ${s===TAB?'active':''}" onclick="setTab('${s}')">${labels[s]}<span class="n">${count(s)}</span></button>`
+  ).join('');
+  const due = ROWS.filter(r=>r.stage!=='3·Sent'&&r.stage!=='Skip'&&r.days_left<=7).length;
+  document.getElementById('sub').innerHTML = `${ROWS.length} packs in the 14-day / low-credit window · <b>${due}</b> urgent (≤7 days)`;
+}
+function setTab(s){ TAB=s; renderTabs(); render(); }
+function setReason(r){ REASON=r; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.reason===r)); render(); }
+
+/* ---------- message (mirrors the pipeline) ---------- */
+function firstName(n){ return (n||"").trim().split(" ")[0] || "there"; }
+function pretty(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-");
+  const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${+d} ${M[+m-1]} ${y}`; }
+const OFFERS = "While your pack is active you can also upgrade to our 20-session pack ($388), or go unlimited with our new Off-Peak Unlimited membership ($200/mo — unlimited weekday visits, exit by 5pm, closed on public holidays). Reply here or message us on "+REPLY+" to find out more. See you in the heat.";
+function message(r){
+  const pk=(r.pack||"").split(" (")[0], nm=firstName(r.customer), exp=pretty(r.effective_expiry);
+  let lead;
+  if(r.reason==="Both") lead=`A quick reminder that your ${pk} expires on ${exp} — and it looks like you're down to your last session or two. Pop in to make the most of them before then! `;
+  else if(r.reason==="Low-credit") lead=`Hope you've been enjoying the heat! It looks like you're down to your last session or two on your ${pk} — pop in to make the most of them while your pack is active. `;
+  else lead=`A quick reminder that your ${pk} expires on ${exp}. There's still time to enjoy your remaining sessions before then! `;
+  return `Hi ${nm}! This is House Longevity \u{1F9D6} `+lead+OFFERS;
+}
+
+/* ---------- render ---------- */
+function daysCell(d){
+  const cls = d<=0?'red':d<=7?'amber':'';
+  const lbl = d<0?`${-d}d`:d+'d';
+  const sub = d<0?'overdue':d===0?'today':'left';
+  return `<div class="days ${cls}">${lbl}<small>${sub}</small></div>`;
+}
+function badge(reason){ const c={Expiry:'expiry','Low-credit':'low',Both:'both'}[reason]||'expiry';
+  return `<span class="badge ${c}">${reason||'—'}</span>`; }
+
+function render(){
+  let rows = ROWS.filter(r=>r.stage===TAB);
+  if(REASON) rows = rows.filter(r=>r.reason===REASON);
+  rows.sort((a,b)=>a.days_left-b.days_left);
+  const list = document.getElementById('list');
+  if(!rows.length){ list.innerHTML = `<div class="empty">Nothing in this stage${REASON?` for “${REASON}”`:''}. 🎉</div>`; return; }
+  list.innerHTML = rows.map(r=>{
+    const credit = r.credits_left!=null ? `${r.credits_left} of ${r.pack_size} left` : (r.usage_label||'');
+    const contact = r.confirmed_phone||r.phone ? (r.confirmed_phone||r.phone) : (r.confirmed_email||r.email||'no contact');
+    return `<div class="row" data-id="${r.invoice_no}">
+      <div class="row-head" onclick="toggle('${r.invoice_no}')">
+        ${daysCell(r.days_left)}
+        <div><div class="who-name">${esc(r.customer)}</div>
+          <div class="meta">${badge(r.reason)}${esc((r.pack||'').split(' (')[0])} · ${esc(credit)} · ${esc(contact)}</div></div>
+        <div class="stage-pill">${r.sent_at?('sent '+r.sent_at.slice(0,10)):(r.checked_by?('checked '+esc(r.checked_by.split('@')[0])):'▾')}</div>
+      </div>
+      <div class="detail" id="d-${r.invoice_no}"></div>
+    </div>`;
+  }).join('');
+}
+function toggle(id){
+  const d=document.getElementById('d-'+id); const r=ROWS.find(x=>x.invoice_no===id);
+  if(d.classList.contains('open')){ d.classList.remove('open'); d.innerHTML=''; return; }
+  document.querySelectorAll('.detail.open').forEach(x=>{x.classList.remove('open');x.innerHTML='';});
+  d.classList.add('open'); d.innerHTML = detailHTML(r); d.classList.add('open');
+}
+function fld(label,inner){ return `<div class="fld"><label>${label}</label>${inner}</div>`; }
+function opts(arr,sel){ return arr.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join(''); }
+
+function detailHTML(r){
+  const phone=(r.confirmed_phone||r.phone||''); const email=(r.confirmed_email||r.email||'');
+  const waNum=(phone||'').replace(/[^0-9]/g,'');
+  const waLink = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(message(r))}` : '';
+  return `
+  <div class="grid">
+    ${fld('Valid? (estimate correct)', `<select id="f-valid-${r.invoice_no}">${opts(['','Yes','No'], r.valid===true?'Yes':r.valid===false?'No':'')}</select>`)}
+    ${fld('If not valid — status', `<select id="f-status-${r.invoice_no}">${opts(STATUS_OPTS, r.not_valid_status||'')}</select>`)}
+    ${fld('Superseded by', `<select id="f-sup-${r.invoice_no}">${opts(PACK_OPTS, r.superseded_by||'')}</select>`)}
+    ${fld('Corrected expiry', `<input type="date" id="f-cexp-${r.invoice_no}" value="${r.corrected_expiry||''}">`)}
+    ${fld('Confirm phone', `<input id="f-phone-${r.invoice_no}" value="${esc(phone)}" placeholder="—">`)}
+    ${fld('Confirm email', `<input id="f-email-${r.invoice_no}" value="${esc(email)}" placeholder="—">`)}
+  </div>
+  <div class="msg">${esc(message(r))}</div>
+  <div class="actions">
+    ${r.stage==='1·Precheck' ? `<button class="btn" onclick="precheckDone('${r.invoice_no}')">✓ Precheck done → Ready</button>`:''}
+    ${r.stage==='2·Ready to send' ? (waLink?`<a class="wa" href="${waLink}" target="_blank" rel="noopener">📲 Open WhatsApp</a>`:`<span class="stamp">No phone — use email: ${esc(email)||'none'}</span>`) : ''}
+    ${r.stage==='2·Ready to send' ? `<select id="f-out-${r.invoice_no}" style="padding:7px 9px;border-radius:9px;border:1px solid var(--line)">${opts(OUTCOME_OPTS,'')}</select><button class="btn" onclick="markSent('${r.invoice_no}')">Mark sent →</button>`:''}
+    ${r.stage==='3·Sent' ? `<span class="stamp">Sent ${r.sent_at?r.sent_at.slice(0,16).replace('T',' '):''} by ${esc((r.sent_by||'').split('@')[0])} · outcome: <b>${esc(r.outcome||'—')}</b></span>`:''}
+    <button class="btn ghost sm" onclick="saveFields('${r.invoice_no}')">Save fields</button>
+    ${r.stage!=='Skip' ? `<button class="btn ghost sm" onclick="setStage('${r.invoice_no}','Skip')">Skip</button>`:`<button class="btn ghost sm" onclick="setStage('${r.invoice_no}','1·Precheck')">Un-skip</button>`}
+    ${fldNotesInline(r)}
+  </div>`;
+}
+function fldNotesInline(r){ return `<input id="f-notes-${r.invoice_no}" value="${esc(r.notes||'')}" placeholder="notes…" style="flex:1;min-width:160px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;font-family:var(--serif)">`; }
+
+/* ---------- writes ---------- */
+function v(id){ const e=document.getElementById(id); return e?e.value:undefined; }
+function collect(id){
+  const valSel=v('f-valid-'+id);
+  return {
+    valid: valSel==='Yes'?true:valSel==='No'?false:null,
+    not_valid_status: v('f-status-'+id)||null,
+    superseded_by: v('f-sup-'+id)||null,
+    corrected_expiry: v('f-cexp-'+id)||null,
+    confirmed_phone: v('f-phone-'+id)||null,
+    confirmed_email: v('f-email-'+id)||null,
+    notes: v('f-notes-'+id)||null,
+  };
+}
+async function upsert(id, patch){
+  patch.invoice_no = id; patch.updated_at = new Date().toISOString();
+  const {error} = await sb.from('reminder_state').upsert(patch, {onConflict:'invoice_no'});
+  if(error){ toast("Save error: "+error.message); return false; }
+  return true;
+}
+async function saveFields(id){ if(await upsert(id, collect(id))){ toast("Saved"); await load(); } }
+async function setStage(id, stage){ if(await upsert(id, {...collect(id), stage})){ toast("→ "+stage); await load(); } }
+async function precheckDone(id){
+  const p = collect(id); if(p.valid===null) p.valid=true;
+  p.stage='2·Ready to send'; p.checked_by=ME; p.checked_at=new Date().toISOString();
+  if(await upsert(id,p)){ toast("Precheck done → Ready"); await load(); }
+}
+async function markSent(id){
+  const p = collect(id);
+  p.stage='3·Sent'; p.sent_by=ME; p.sent_at=new Date().toISOString(); p.outcome=v('f-out-'+id)||null;
+  if(await upsert(id,p)){ toast("Marked sent"); await load(); }
+}
+
+/* ---------- util ---------- */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let toastT; function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+init();
+</script>
+</body>
+</html>
