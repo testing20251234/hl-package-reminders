@@ -17,7 +17,7 @@ new Hapana export ─▶ pipeline (Python) ──upsert by Invoice#──▶ Sup
 ```
 
 - **Supabase project:** `sbh-attendence` (`geheirnfbhqnhrjmrrax`). *(Deliberately NOT the Stripe "Hapana Add on" project — that stays untouched.)*
-- **Auth:** Supabase magic-link (passwordless). Only authenticated staff can read/write (RLS). The publishable key in `index.html` is safe to expose.
+- **Auth:** Supabase email+password. A single shared `sbhadmin` account (no email infra). Only authenticated users can read/write (RLS). The publishable key in `index.html` is safe to expose. Staff type their initials (top-right field, remembered per device) so `checked_by`/`sent_by` still record who did the work despite the shared login.
 - **Hosting:** GitHub Pages (static single file).
 
 ## Ingest / refresh (every ~2 weeks)
@@ -44,15 +44,13 @@ Only `reminder_packs` is upserted; staff edits in `reminder_state` are never ove
    ```
    Pages URL will be `https://<you>.github.io/hl-package-reminders/`.
    Live URL: **https://testing20251234.github.io/hl-package-reminders/**
-2. **Allow the magic-link redirect** — Supabase dashboard → Auth → URL Configuration:
-   - Site URL: the Pages URL above.
-   - Redirect URLs: add the Pages URL (and `http://localhost:*` if testing locally).
-3. **Invite staff** — Auth → Users → "Add user" (or Invite) for each staff email.
-   The app uses `shouldCreateUser:false`, so **only pre-invited emails can sign in** —
-   no open self-signup. This is the access control for the PII.
-4. *(Recommended for real use)* Auth → set up custom SMTP — the built-in email sender
-   is rate-limited (~a few/hour) and may land in spam.
-5. Share the URL with staff. First visit → enter work email → click the emailed link → in.
+   Live URL: **https://testing20251234.github.io/hl-package-reminders/**
+2. **Create the shared login** — Supabase dashboard → Authentication → Users → "Add user":
+   - Email: `sbhadmin@houselongevity.com`  ·  set a password  ·  tick **Auto Confirm User**.
+   - That's the only account; share its password with staff. (Email+password = no email
+     infra, no rate limits, no spam — most reliable.)
+3. Share the URL with staff → they enter `sbhadmin` email + password → in. Each types their
+   initials (top-right) so `checked_by`/`sent_by` records who acted.
 
 ## Security notes
 - `anon`/unauthenticated users get **nothing** (RLS denies by default). Only `authenticated` staff can read/write — the right boundary for customer PII.
