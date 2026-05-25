@@ -50,6 +50,7 @@
   .badge.expiry{background:var(--amber-bg);color:var(--amber);border-color:transparent}
   .badge.low{background:var(--accent-soft);color:var(--accent);border-color:transparent}
   .badge.both{background:var(--red-bg);color:var(--red);border-color:transparent}
+  .badge.upcoming{background:#ece4d8;color:var(--muted);border-color:transparent}
   .stage-pill{font-size:12px;color:var(--muted);white-space:nowrap}
   /* detail */
   .detail{border-top:1px solid var(--line);padding:16px;display:none;background:#fffefb}
@@ -101,6 +102,7 @@
     <span class="chip" data-reason="Expiry" onclick="setReason('Expiry')">Expiry</span>
     <span class="chip" data-reason="Low-credit" onclick="setReason('Low-credit')">Low-credit</span>
     <span class="chip" data-reason="Both" onclick="setReason('Both')">Both</span>
+    <span class="chip" data-reason="Upcoming" onclick="setReason('Upcoming')">Upcoming</span>
     <span style="margin-left:auto"><button class="btn ghost sm" onclick="load()">↻ Refresh</button></span>
   </div>
   <div id="list"></div>
@@ -160,7 +162,8 @@ function renderTabs(){
     `<button class="tab ${s===TAB?'active':''}" onclick="setTab('${s}')">${labels[s]}<span class="n">${count(s)}</span></button>`
   ).join('');
   const due = ROWS.filter(r=>r.stage!=='3·Sent'&&r.stage!=='Skip'&&r.days_left<=7).length;
-  document.getElementById('sub').innerHTML = `${ROWS.length} packs in the 14-day / low-credit window · <b>${due}</b> urgent (≤7 days)`;
+  const dueWin = ROWS.filter(r=>r.reason&&r.reason!=='Upcoming').length;
+  document.getElementById('sub').innerHTML = `${ROWS.length} active packs · ${dueWin} due (≤14d / low-credit) · <b>${due}</b> need action now (≤7 days) · soonest first`;
 }
 function setTab(s){ TAB=s; renderTabs(); render(); }
 function setReason(r){ REASON=r; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.reason===r)); render(); }
@@ -187,7 +190,7 @@ function daysCell(d){
   const sub = d<0?'overdue':d===0?'today':'left';
   return `<div class="days ${cls}">${lbl}<small>${sub}</small></div>`;
 }
-function badge(reason){ const c={Expiry:'expiry','Low-credit':'low',Both:'both'}[reason]||'expiry';
+function badge(reason){ const c={Expiry:'expiry','Low-credit':'low',Both:'both',Upcoming:'upcoming'}[reason]||'upcoming';
   return `<span class="badge ${c}">${reason||'—'}</span>`; }
 
 function render(){

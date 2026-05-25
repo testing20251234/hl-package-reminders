@@ -7,14 +7,18 @@ the database surfaces "what's due / what's at my station" live, which Excel coul
 ## Architecture
 
 ```
-new Hapana export ─▶ pipeline (Python) ──upsert by Invoice#──▶ Supabase Postgres
-                                                               ├ reminder_packs   (ingest-owned facts)
-                                                               └ reminder_state   (staff edits — ingest never touches)
-                                                                       │
-                                                            reminder_worklist  (view: live days_left, union filter)
-                                                                       │
-                                                   index.html (this app, supabase-js + magic-link) ─▶ staff
+new Hapana export (inbox/) ─▶ Python (local) ─▶ Supabase Postgres
+        push_raw.py  ───upsert (invoice_no,status), dedup in cloud──▶ reminder_raw_transactions  (raw audit trail)
+        compute_*    ───clean / map / net refunds / usage+credits──▶ (enriched CSV, local)
+        push_to_supabase.py ──upsert by invoice_no───────────────────▶ reminder_packs   (ingest-owned facts)
+                                                                       reminder_state    (staff edits — ingest NEVER touches)
+                                                                              │
+                                                       reminder_worklist (view: live days_left, ALL active packs)
+                                                                              │
+                                          index.html (this app, supabase-js + password) ─▶ staff
 ```
+Worklist = **all active packs** (precheck vets everything); `days_left` + `reason`
+(Expiry / Low-credit / Both / Upcoming) tell staff *when* to act.
 
 - **Supabase project:** `sbh-attendence` (`geheirnfbhqnhrjmrrax`). *(Deliberately NOT the Stripe "Hapana Add on" project — that stays untouched.)*
 - **Auth:** Supabase email+password. A single shared `sbhadmin` account (no email infra). Only authenticated users can read/write (RLS). The publishable key in `index.html` is safe to expose. Staff type their initials (top-right field, remembered per device) so `checked_by`/`sent_by` still record who did the work despite the shared login.
@@ -27,12 +31,15 @@ The pipeline currently lives in the thinking-system session
 check-in CSV in `inbox/`, then run in order:
 
 ```
-python3 ingest_ledger.py      # accumulate uploads, dedupe by Invoice#
-python3 compute_expiry.py     # estimate expiry from purchase + validity
-python3 compute_usage.py      # check-in usage proxy + low-credit flag
+python3 push_raw.py           # raw transactions -> cloud (dedup by invoice_no+status), pulls deduped set back
+python3 ingest_ledger.py      # check-ins -> local ledger (usage/phone proxy)
+python3 compute_expiry.py     # map desc->pack, filter, net refunds, compute expiry, join phone
+python3 compute_usage.py      # check-in usage proxy + credits-left + low-credit flag
 python3 push_to_supabase.py   # UPSERT reminder_packs (creds from attendance-bot/.env)
 ```
 
+Overlapping uploads are safe: raw dedup is enforced in the cloud by the
+`(invoice_no, payment_status)` primary key, and `reminder_packs` by `invoice_no`.
 Only `reminder_packs` is upserted; staff edits in `reminder_state` are never overwritten.
 
 ## Deploy (one-time)
