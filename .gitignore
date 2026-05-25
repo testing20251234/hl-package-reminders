@@ -2,3 +2,9 @@
 *.env
 node_modules/
 __pycache__/
+
+# Local-only ingest pipeline: scripts + customer-PII data (ledgers, Hapana exports,
+# enriched outputs). Lives on this machine only — never published to this public repo.
+pipeline/
+# Belt-and-braces: never commit a stray data export anywhere in the repo.
+*.csv

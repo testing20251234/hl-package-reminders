@@ -64,6 +64,9 @@
   .stamp{font-size:12.5px;color:var(--muted)}
   .wa{background:#1f8a4c;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:14.5px;text-decoration:none;display:inline-flex;gap:6px;align-items:center}
   .empty{text-align:center;color:var(--muted);padding:50px 0;font-size:15px}
+  .laterbar{cursor:pointer;color:var(--muted);font-size:13.5px;padding:12px 4px 8px;user-select:none;border-top:1px dashed var(--line);margin-top:6px}
+  .laterbar:hover{color:var(--accent)}
+  .later .row{opacity:.6}
   /* login */
   .login{max-width:380px;margin:9vh auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:30px 28px;text-align:center;box-shadow:0 4px 16px rgba(139,90,60,.08)}
   .login h2{font-weight:600;margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 18px}
@@ -122,7 +125,7 @@ const STATUS_OPTS = ["","Extended","Superseded","Already expired","Sessions used
 const OUTCOME_OPTS = ["","Booked","Upgraded-20pack","Upgraded-membership","Not interested","No response","Wrong number"];
 const PACK_OPTS = ["","SBH First Timer","SBH 5-Pack","SBH 10-Pack","SBH 20-Pack","SBH 50-Pack","20-Pack $388","RLT 10-Pack","RLT 20-Pack","RLT 50-Pack","HBOT 5-Pack","HBOT 10-Pack","Off-Peak Unlimited","Full Unlimited","Other"];
 
-let ROWS = [], TAB = "1·Precheck", REASON = "", ME = "";
+let ROWS = [], TAB = "1·Precheck", REASON = "", ME = "", SHOW_LATER = false;
 
 /* ---------- auth ---------- */
 async function init(){
@@ -155,15 +158,19 @@ async function load(){
   ROWS = data || [];
   renderTabs(); render();
 }
-function count(stage){ return ROWS.filter(r=>r.stage===stage).length; }
+// Ready-to-send tab shows the actionable (due-now) count; others show their stage size
+function tabCount(s){
+  if(s==='2·Ready to send') return ROWS.filter(r=>r.stage===s && r.due).length;
+  return ROWS.filter(r=>r.stage===s).length;
+}
 function renderTabs(){
-  const labels = {"1·Precheck":"1 · Precheck","2·Ready to send":"2 · Ready to send","3·Sent":"3 · Sent","Skip":"Skip"};
+  const labels = {"1·Precheck":"1 · Precheck","2·Ready to send":"2 · Ready to send","3·Sent":"3 · Done","Skip":"Skip"};
   document.getElementById('tabs').innerHTML = STAGES.map(s=>
-    `<button class="tab ${s===TAB?'active':''}" onclick="setTab('${s}')">${labels[s]}<span class="n">${count(s)}</span></button>`
+    `<button class="tab ${s===TAB?'active':''}" onclick="setTab('${s}')">${labels[s]}<span class="n">${tabCount(s)}</span></button>`
   ).join('');
-  const due = ROWS.filter(r=>r.stage!=='3·Sent'&&r.stage!=='Skip'&&r.days_left<=7).length;
-  const dueWin = ROWS.filter(r=>r.reason&&r.reason!=='Upcoming').length;
-  document.getElementById('sub').innerHTML = `${ROWS.length} active packs · ${dueWin} due (≤14d / low-credit) · <b>${due}</b> need action now (≤7 days) · soonest first`;
+  const dueNow = ROWS.filter(r=>r.due).length;
+  const armed  = ROWS.filter(r=>r.stage==='2·Ready to send').length;
+  document.getElementById('sub').innerHTML = `${ROWS.length} active packs · ${armed} in send queue · <b>${dueNow}</b> to send now (1st @14d, 2nd @7d) · soonest first`;
 }
 function setTab(s){ TAB=s; renderTabs(); render(); }
 function setReason(r){ REASON=r; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.reason===r)); render(); }
@@ -173,7 +180,7 @@ function firstName(n){ return (n||"").trim().split(" ")[0] || "there"; }
 function pretty(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-");
   const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${+d} ${M[+m-1]} ${y}`; }
-const OFFERS = "While your pack is active you can also upgrade to our 20-session pack ($388), or go unlimited with our new Off-Peak Unlimited membership ($200/mo — unlimited weekday visits, exit by 5pm, closed on public holidays). Reply here or message us on "+REPLY+" to find out more. See you in the heat.";
+const OFFERS = "While your pack is active you can also upgrade to our 20-session pack ($388), or go unlimited with our new Off-Peak Unlimited membership ($200/mo — unlimited weekday visits, exit by 5pm, closed on public holidays). Reply here or message us on "+REPLY+" to find out more. And if we've gotten anything wrong or there's any issue on your end, do let us know — we're always here to help! \u{1F642} See you in the heat.";
 function message(r){
   const pk=(r.pack||"").split(" (")[0], nm=firstName(r.customer), exp=pretty(r.effective_expiry);
   let lead;
@@ -193,25 +200,51 @@ function daysCell(d){
 function badge(reason){ const c={Expiry:'expiry','Low-credit':'low',Both:'both',Upcoming:'upcoming'}[reason]||'upcoming';
   return `<span class="badge ${c}">${reason||'—'}</span>`; }
 
+// short status hint per row (which reminder is due / sent / scheduled)
+function pill(r){
+  if(r.stage==='3·Sent') return 'done';
+  if(r.due) return r.tier==='nudge_7' ? '2nd reminder due' : '1st reminder due';
+  if(r.nudge_14_sent_at) return '1st sent · 2nd ~7d';
+  if(r.stage==='2·Ready to send') return 'scheduled';
+  if(r.checked_by) return 'checked ' + esc(r.checked_by.split('@')[0]);
+  return '▾';
+}
+function rowHTML(r){
+  const credit = r.credits_left!=null ? `${r.credits_left} of ${r.pack_size} left` : (r.usage_label||'');
+  const contact = r.confirmed_phone||r.phone ? (r.confirmed_phone||r.phone) : (r.confirmed_email||r.email||'no contact');
+  return `<div class="row" data-id="${r.invoice_no}">
+    <div class="row-head" onclick="toggle('${r.invoice_no}')">
+      ${daysCell(r.days_left)}
+      <div><div class="who-name">${esc(r.customer)}</div>
+        <div class="meta">${badge(r.reason)}${esc((r.pack||'').split(' (')[0])} · ${esc(credit)} · ${esc(contact)}</div></div>
+      <div class="stage-pill">${pill(r)}</div>
+    </div>
+    <div class="detail" id="d-${r.invoice_no}"></div>
+  </div>`;
+}
+function toggleLater(){ SHOW_LATER=!SHOW_LATER; render(); }
 function render(){
   let rows = ROWS.filter(r=>r.stage===TAB);
   if(REASON) rows = rows.filter(r=>r.reason===REASON);
   rows.sort((a,b)=>a.days_left-b.days_left);
   const list = document.getElementById('list');
+
+  // Send queue: surface only what's DUE now; the rest waits behind a toggle
+  // and re-surfaces on its own when it enters the 14d / 7d window.
+  if(TAB==='2·Ready to send'){
+    const dueRows = rows.filter(r=>r.due), later = rows.filter(r=>!r.due);
+    let html = dueRows.length ? dueRows.map(rowHTML).join('')
+      : `<div class="empty">Nothing to send right now${REASON?` for “${REASON}”`:''}. 🎉</div>`;
+    if(later.length){
+      html += `<div class="laterbar" onclick="toggleLater()">${SHOW_LATER?'▾':'▸'} ${later.length} scheduled for later (not yet in window)</div>`;
+      if(SHOW_LATER) html += `<div class="later">${later.map(rowHTML).join('')}</div>`;
+    }
+    list.innerHTML = html;
+    return;
+  }
+
   if(!rows.length){ list.innerHTML = `<div class="empty">Nothing in this stage${REASON?` for “${REASON}”`:''}. 🎉</div>`; return; }
-  list.innerHTML = rows.map(r=>{
-    const credit = r.credits_left!=null ? `${r.credits_left} of ${r.pack_size} left` : (r.usage_label||'');
-    const contact = r.confirmed_phone||r.phone ? (r.confirmed_phone||r.phone) : (r.confirmed_email||r.email||'no contact');
-    return `<div class="row" data-id="${r.invoice_no}">
-      <div class="row-head" onclick="toggle('${r.invoice_no}')">
-        ${daysCell(r.days_left)}
-        <div><div class="who-name">${esc(r.customer)}</div>
-          <div class="meta">${badge(r.reason)}${esc((r.pack||'').split(' (')[0])} · ${esc(credit)} · ${esc(contact)}</div></div>
-        <div class="stage-pill">${r.sent_at?('sent '+r.sent_at.slice(0,10)):(r.checked_by?('checked '+esc(r.checked_by.split('@')[0])):'▾')}</div>
-      </div>
-      <div class="detail" id="d-${r.invoice_no}"></div>
-    </div>`;
-  }).join('');
+  list.innerHTML = rows.map(rowHTML).join('');
 }
 function toggle(id){
   const d=document.getElementById('d-'+id); const r=ROWS.find(x=>x.invoice_no===id);
@@ -222,10 +255,23 @@ function toggle(id){
 function fld(label,inner){ return `<div class="fld"><label>${label}</label>${inner}</div>`; }
 function opts(arr,sel){ return arr.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join(''); }
 
+function scheduleHint(r){
+  if(r.nudge_14_sent_at) return '1st reminder sent — the 2nd will surface here on its own ~7 days before expiry.';
+  if(r.days_left>14) return `Scheduled — surfaces for the 1st reminder in ${r.days_left-14} day(s) (14 days before expiry).`;
+  return 'Scheduled.';
+}
+function nudgeHistory(r){
+  const b=[];
+  if(r.nudge_14_sent_at) b.push(`1st reminder sent ${r.nudge_14_sent_at.slice(0,10)} by ${esc((r.nudge_14_sent_by||'').split('@')[0])}`);
+  if(r.nudge_7_sent_at)  b.push(`2nd reminder sent ${r.nudge_7_sent_at.slice(0,10)} by ${esc((r.nudge_7_sent_by||'').split('@')[0])}`);
+  return b.length ? `<div class="stamp" style="margin-top:9px">✓ ${b.join(' · ')}</div>` : '';
+}
 function detailHTML(r){
   const phone=(r.confirmed_phone||r.phone||''); const email=(r.confirmed_email||r.email||'');
   const waNum=(phone||'').replace(/[^0-9]/g,'');
   const waLink = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(message(r))}` : '';
+  const sendable = r.stage==='2·Ready to send' && r.due;
+  const nudgeLabel = r.tier==='nudge_7' ? 'Mark 2nd (final) reminder sent →' : 'Mark 1st reminder sent →';
   return `
   <div class="grid">
     ${fld('Valid? (estimate correct)', `<select id="f-valid-${r.invoice_no}">${opts(['','Yes','No'], r.valid===true?'Yes':r.valid===false?'No':'')}</select>`)}
@@ -237,14 +283,16 @@ function detailHTML(r){
   </div>
   <div class="msg">${esc(message(r))}</div>
   <div class="actions">
-    ${r.stage==='1·Precheck' ? `<button class="btn" onclick="precheckDone('${r.invoice_no}')">✓ Precheck done → Ready</button>`:''}
-    ${r.stage==='2·Ready to send' ? (waLink?`<a class="wa" href="${waLink}" target="_blank" rel="noopener">📲 Open WhatsApp</a>`:`<span class="stamp">No phone — use email: ${esc(email)||'none'}</span>`) : ''}
-    ${r.stage==='2·Ready to send' ? `<select id="f-out-${r.invoice_no}" style="padding:7px 9px;border-radius:9px;border:1px solid var(--line)">${opts(OUTCOME_OPTS,'')}</select><button class="btn" onclick="markSent('${r.invoice_no}')">Mark sent →</button>`:''}
-    ${r.stage==='3·Sent' ? `<span class="stamp">Sent ${r.sent_at?r.sent_at.slice(0,16).replace('T',' '):''} by ${esc((r.sent_by||'').split('@')[0])} · outcome: <b>${esc(r.outcome||'—')}</b></span>`:''}
+    ${r.stage==='1·Precheck' ? `<button class="btn" onclick="precheckDone('${r.invoice_no}')">✓ Precheck done → send queue</button>`:''}
+    ${sendable ? (waLink?`<a class="wa" href="${waLink}" target="_blank" rel="noopener">📲 Open WhatsApp</a>`:`<span class="stamp">No phone — use email: ${esc(email)||'none'}</span>`) : ''}
+    ${sendable ? `<select id="f-out-${r.invoice_no}" style="padding:7px 9px;border-radius:9px;border:1px solid var(--line)">${opts(OUTCOME_OPTS,'')}</select><button class="btn" onclick="markSent('${r.invoice_no}')">${nudgeLabel}</button>`:''}
+    ${r.stage==='2·Ready to send' && !r.due ? `<span class="stamp">${scheduleHint(r)}</span>`:''}
+    ${r.stage==='3·Sent' ? `<span class="stamp">Done · outcome: <b>${esc(r.outcome||'—')}</b></span>`:''}
     <button class="btn ghost sm" onclick="saveFields('${r.invoice_no}')">Save fields</button>
     ${r.stage!=='Skip' ? `<button class="btn ghost sm" onclick="setStage('${r.invoice_no}','Skip')">Skip</button>`:`<button class="btn ghost sm" onclick="setStage('${r.invoice_no}','1·Precheck')">Un-skip</button>`}
     ${fldNotesInline(r)}
-  </div>`;
+  </div>
+  ${nudgeHistory(r)}`;
 }
 function fldNotesInline(r){ return `<input id="f-notes-${r.invoice_no}" value="${esc(r.notes||'')}" placeholder="notes…" style="flex:1;min-width:160px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;font-family:var(--serif)">`; }
 
@@ -276,9 +324,15 @@ async function precheckDone(id){
   if(await upsert(id,p)){ toast("Precheck done → Ready"); await load(); }
 }
 async function markSent(id){
+  const r = ROWS.find(x=>x.invoice_no===id);
   const p = collect(id);
-  p.stage='3·Sent'; p.sent_by=who(); p.sent_at=new Date().toISOString(); p.outcome=v('f-out-'+id)||null;
-  if(await upsert(id,p)){ toast("Marked sent"); await load(); }
+  const now = new Date().toISOString(), me = who();
+  // tier from days_left: <=7 is the 2nd (final) reminder, else the 1st
+  const tier = (r && r.days_left<=7) ? 'nudge_7' : 'nudge_14';
+  if(tier==='nudge_7'){ p.nudge_7_sent_at=now; p.nudge_7_sent_by=me; p.stage='3·Sent'; }
+  else { p.nudge_14_sent_at=now; p.nudge_14_sent_by=me; }   // stays armed; resurfaces ~7d before expiry
+  p.sent_at=now; p.sent_by=me; p.outcome=v('f-out-'+id)||null;
+  if(await upsert(id,p)){ toast(tier==='nudge_7'?'2nd reminder sent — done ✓':'1st reminder sent — will resurface ~7d before expiry'); await load(); }
 }
 
 /* ---------- util ---------- */
