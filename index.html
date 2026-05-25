@@ -180,14 +180,14 @@ function firstName(n){ return (n||"").trim().split(" ")[0] || "there"; }
 function pretty(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-");
   const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${+d} ${M[+m-1]} ${y}`; }
-const OFFERS = "While your pack is active you can also upgrade to our 20-session pack ($388), or go unlimited with our new Off-Peak Unlimited membership ($200/mo — unlimited weekday visits, exit by 5pm, closed on public holidays). Reply here or message us on "+REPLY+" to find out more. And if we've gotten anything wrong or there's any issue on your end, do let us know — we're always here to help! \u{1F642} See you in the heat.";
+const OFFERS = "While your pack is active you can also upgrade to our 20-session pack ($388), or go unlimited with our new Off-Peak Unlimited membership ($200/mo — unlimited weekday visits, exit by 5pm, closed on public holidays). Reply here or message us on "+REPLY+" to find out more. And if we've gotten anything wrong or there's any issue on your end, do let us know — we're always here to help! See you in the heat.";
 function message(r){
   const pk=(r.pack||"").split(" (")[0], nm=firstName(r.customer), exp=pretty(r.effective_expiry);
   let lead;
   if(r.reason==="Both") lead=`A quick reminder that your ${pk} expires on ${exp} — and it looks like you're down to your last session or two. Pop in to make the most of them before then! `;
   else if(r.reason==="Low-credit") lead=`Hope you've been enjoying the heat! It looks like you're down to your last session or two on your ${pk} — pop in to make the most of them while your pack is active. `;
   else lead=`A quick reminder that your ${pk} expires on ${exp}. There's still time to enjoy your remaining sessions before then! `;
-  return `Hi ${nm}! This is House Longevity \u{1F9D6} `+lead+OFFERS;
+  return `Hi ${nm}! This is House Longevity. `+lead+OFFERS;
 }
 
 /* ---------- render ---------- */
