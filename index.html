@@ -136,8 +136,10 @@ function showApp(session){
 async function sendLink(){
   const email = document.getElementById('email').value.trim();
   if(!email) return;
-  const {error} = await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.href.split('#')[0]}});
-  document.getElementById('loginNote').textContent = error ? ("Error: "+error.message) : "✓ Check your inbox for the login link.";
+  // shouldCreateUser:false -> only staff pre-invited in Supabase Auth can sign in (no open self-signup).
+  const {error} = await sb.auth.signInWithOtp({email, options:{shouldCreateUser:false, emailRedirectTo: location.href.split('#')[0]}});
+  document.getElementById('loginNote').textContent = error ? ("Error: "+error.message)
+    : "✓ If your email is registered as staff, a login link is on its way. (Not registered? Ask an admin to add you.)";
 }
 async function signOut(){ await sb.auth.signOut(); location.reload(); }
 

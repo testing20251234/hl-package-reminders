@@ -43,10 +43,16 @@ Only `reminder_packs` is upserted; staff edits in `reminder_state` are never ove
    gh api -X POST repos/:owner/hl-package-reminders/pages -f source.branch=main -f source.path=/
    ```
    Pages URL will be `https://<you>.github.io/hl-package-reminders/`.
+   Live URL: **https://testing20251234.github.io/hl-package-reminders/**
 2. **Allow the magic-link redirect** — Supabase dashboard → Auth → URL Configuration:
    - Site URL: the Pages URL above.
    - Redirect URLs: add the Pages URL (and `http://localhost:*` if testing locally).
-3. Share the URL with staff. First visit → enter work email → click the emailed link → in.
+3. **Invite staff** — Auth → Users → "Add user" (or Invite) for each staff email.
+   The app uses `shouldCreateUser:false`, so **only pre-invited emails can sign in** —
+   no open self-signup. This is the access control for the PII.
+4. *(Recommended for real use)* Auth → set up custom SMTP — the built-in email sender
+   is rate-limited (~a few/hour) and may land in spam.
+5. Share the URL with staff. First visit → enter work email → click the emailed link → in.
 
 ## Security notes
 - `anon`/unauthenticated users get **nothing** (RLS denies by default). Only `authenticated` staff can read/write — the right boundary for customer PII.
