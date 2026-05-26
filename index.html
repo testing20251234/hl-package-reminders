@@ -121,6 +121,11 @@ const REPLY = "8989 8525";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const STAGES = ["1·Precheck","2·Ready to send","3·Sent","Skip"];
+// Tab bar order. "Early sent" is a VIRTUAL tab (not a real stage) — the in-flight
+// cohort whose early reminder went out and whose final one is still pending.
+const TABS = ["1·Precheck","2·Ready to send","Early sent","3·Sent","Skip"];
+// early reminder sent, final not yet, and not currently due (those jump back to Ready)
+function isEarlyWaiting(r){ return r.stage==='2·Ready to send' && r.nudge_14_sent_at && !r.nudge_7_sent_at && !r.due; }
 const STATUS_OPTS = ["","Extended","Superseded","Already expired","Sessions used up","Cancelled/Refunded","Other"];
 const OUTCOME_OPTS = ["","Booked","Upgraded-20pack","Upgraded-membership","Not interested","No response","Wrong number"];
 const PACK_OPTS = ["","SBH First Timer","SBH 5-Pack","SBH 10-Pack","SBH 20-Pack","SBH 50-Pack","20-Pack $388","RLT 10-Pack","RLT 20-Pack","RLT 50-Pack","HBOT 5-Pack","HBOT 10-Pack","Off-Peak Unlimited","Full Unlimited","Other"];
@@ -158,14 +163,16 @@ async function load(){
   ROWS = data || [];
   renderTabs(); render();
 }
-// Ready-to-send tab shows the actionable (due-now) count; others show their stage size
+// Ready-to-send tab shows the actionable (due-now) count; Early sent shows the
+// in-flight cohort; others show their stage size.
 function tabCount(s){
   if(s==='2·Ready to send') return ROWS.filter(r=>r.stage===s && r.due).length;
+  if(s==='Early sent') return ROWS.filter(isEarlyWaiting).length;
   return ROWS.filter(r=>r.stage===s).length;
 }
 function renderTabs(){
-  const labels = {"1·Precheck":"1 · Precheck","2·Ready to send":"2 · Ready to send","3·Sent":"3 · Done","Skip":"Skip"};
-  document.getElementById('tabs').innerHTML = STAGES.map(s=>
+  const labels = {"1·Precheck":"1 · Precheck","2·Ready to send":"2 · Ready to send","Early sent":"Early sent","3·Sent":"3 · Done","Skip":"Skip"};
+  document.getElementById('tabs').innerHTML = TABS.map(s=>
     `<button class="tab ${s===TAB?'active':''}" onclick="setTab('${s}')">${labels[s]}<span class="n">${tabCount(s)}</span></button>`
   ).join('');
   const dueNow = ROWS.filter(r=>r.due).length;
@@ -228,15 +235,16 @@ function rowHTML(r){
 }
 function toggleLater(){ SHOW_LATER=!SHOW_LATER; render(); }
 function render(){
-  let rows = ROWS.filter(r=>r.stage===TAB);
+  let rows = TAB==='Early sent' ? ROWS.filter(isEarlyWaiting) : ROWS.filter(r=>r.stage===TAB);
   if(REASON) rows = rows.filter(r=>r.reason===REASON);
   rows.sort((a,b)=>a.days_left-b.days_left);
   const list = document.getElementById('list');
 
-  // Send queue: surface only what's DUE now; the rest waits behind a toggle
-  // and re-surfaces on its own when it enters the 14d / 7d window.
+  // Send queue: surface only what's DUE now; never-contacted packs wait behind a
+  // toggle and re-surface on their own at 14d. Early-sent packs have their own tab,
+  // so they're excluded from the "later" list here.
   if(TAB==='2·Ready to send'){
-    const dueRows = rows.filter(r=>r.due), later = rows.filter(r=>!r.due);
+    const dueRows = rows.filter(r=>r.due), later = rows.filter(r=>!r.due && !isEarlyWaiting(r));
     let html = dueRows.length ? dueRows.map(rowHTML).join('')
       : `<div class="empty">Nothing to send right now${REASON?` for “${REASON}”`:''}. 🎉</div>`;
     if(later.length){
@@ -244,6 +252,16 @@ function render(){
       if(SHOW_LATER) html += `<div class="later">${later.map(rowHTML).join('')}</div>`;
     }
     list.innerHTML = html;
+    return;
+  }
+
+  // Early sent: contacted once, final reminder still pending. They auto-return to
+  // "Ready to send" ~7 days before expiry — this is a read-only holding view.
+  if(TAB==='Early sent'){
+    list.innerHTML = rows.length
+      ? `<div style="color:var(--muted);font-size:13px;padding:2px 4px 12px">Early reminder sent · the final one surfaces in “Ready to send” on its own ~7 days before expiry.</div>`
+        + rows.map(rowHTML).join('')
+      : `<div class="empty">No one's mid-cadence right now${REASON?` for “${REASON}”`:''}. 🎉</div>`;
     return;
   }
 
