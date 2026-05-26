@@ -58,6 +58,8 @@
   .note{font-size:12.5px;color:var(--muted);margin-top:14px}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none}
   .toast.show{opacity:1}
+  .warn{background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:12px;padding:11px 14px;margin:0 0 14px;font-size:14px;line-height:1.45}
+  .warn b{font-weight:600}
   .hidden{display:none}
 </style>
 </head>
@@ -89,6 +91,7 @@
     <span class="chip" data-who="lapsed" onclick="setWho('lapsed')">Lapsed</span>
     <span style="margin-left:auto"><button class="btn ghost sm" onclick="load()">↻ Refresh</button></span>
   </div>
+  <div id="warnbar"></div>
   <div id="list"></div>
 </div>
 
@@ -104,6 +107,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const STAGES = ["To send","No phone","Sent","Skip"];
 
 let ROWS = [], TAB = "To send", WHO = "", ME = "", OPEN = null;
+let SENT_TODAY = 0;                 // combined WhatsApp sends today (expiry + promo), SGT
+const WARN_AT = 20;                 // ban-safety brake: warn staff past this many/day
 
 /* ---------- auth (same shared login as the expiry worklist) ---------- */
 async function init(){
@@ -133,7 +138,20 @@ async function load(){
   const {data,error} = await sb.from('promo_worklist').select('*');
   if(error){ toast("Load error: "+error.message); return; }
   ROWS = (data||[]).sort((a,b)=> (a.customer||'').localeCompare(b.customer||''));
+  await refreshSentToday();
   renderTabs(); render();
+}
+// combined daily send count across BOTH pages (ban risk is per WhatsApp number)
+async function refreshSentToday(){
+  const {data:sc} = await sb.from('daily_send_count').select('*').maybeSingle();
+  SENT_TODAY = sc ? ((sc.expiry_sent||0) + (sc.promo_sent||0)) : 0;
+  updateWarnbar();
+}
+function updateWarnbar(){
+  const el = document.getElementById('warnbar'); if(!el) return;
+  el.innerHTML = SENT_TODAY >= WARN_AT
+    ? `<div class="warn">⚠️ <b>${SENT_TODAY}</b> WhatsApp messages already sent today from this number (expiry + promo combined). WhatsApp flags high daily volume from one number — <b>consider pausing and continuing tomorrow</b>.</div>`
+    : '';
 }
 function tabCount(s){ return ROWS.filter(r=>r.stage===s).length; }
 function renderTabs(){
@@ -141,8 +159,10 @@ function renderTabs(){
     `<button class="tab ${s===TAB?'active':''}" onclick="setTab('${s}')">${s}<span class="n">${tabCount(s)}</span></button>`
   ).join('');
   const total = ROWS.length, tosend = tabCount('To send'), sent = tabCount('Sent');
+  const cntCol = SENT_TODAY >= WARN_AT ? 'var(--red)' : 'var(--muted)';
   document.getElementById('sub').innerHTML =
-    `${total} past & current pack-holders · <b>${tosend}</b> to send (WhatsApp) · ${sent} sent · promo runs through 8 Jun`;
+    `${total} past & current pack-holders · <b>${tosend}</b> to send (WhatsApp) · ${sent} sent · promo runs through 8 Jun`
+    + ` · <span style="color:${cntCol}">sent today (all): <b>${SENT_TODAY}</b>/${WARN_AT}</span>`;
 }
 function setTab(s){ TAB=s; OPEN=null; renderTabs(); render(); }
 function setWho(w){ WHO=w; OPEN=null; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.who===w)); render(); }
@@ -221,6 +241,7 @@ async function upsert(patch){
 }
 function noteVal(i){ const e=document.getElementById('f-notes-'+i); return e?(e.value||null):undefined; }
 async function markSent(i){
+  if(SENT_TODAY >= WARN_AT && !confirm(`You've already sent ${SENT_TODAY} WhatsApp messages today from this number (expiry + promo combined).\n\nSending more raises the risk WhatsApp flags or bans the number. Send anyway?`)) return;
   const r = ROWS[i];
   if(await upsert({email:r.email, promo_sent_at:new Date().toISOString(), promo_sent_by:who(), notes:noteVal(i)})){
     toast("Marked sent ✓"); await load();
