@@ -181,13 +181,17 @@ function pretty(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-");
   const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${+d} ${M[+m-1]} ${y}`; }
 const OFFERS = "Until 8 June, bring a friend during off-peak hours (Mon–Fri, just exit by 5pm) and your entry is free — your friend just pays $27.50 instead of $55, or picks up any package. You can also upgrade to our 20-session pack ($388) or go unlimited with our Off-Peak Unlimited membership ($200/mo) while your pack's still active. Reply here or message us on "+REPLY+" to find out more — and if we've gotten anything wrong or there's any issue, do let us know, we're always here to help. See you in the heat.";
+// App links — kept OUTSIDE the OFFERS string so the 9-Jun promo auto-strip (trig_01VDdXbmap3W9QBEdcJky98F) never touches them.
+const APP_IOS = "https://apps.apple.com/au/app/house-longevity-x-sbh/id6761812350";
+const APP_ANDROID = "https://play.google.com/store/apps/details?id=com.hapana.houselongevitysaunabath";
+const APP_TIP = "\n\nP.S. The easiest way to check your expiry and remaining sessions anytime is our app — Apple: "+APP_IOS+" · Android: "+APP_ANDROID;
 function message(r){
   const pk=(r.pack||"").split(" (")[0], nm=firstName(r.customer), exp=pretty(r.effective_expiry);
   let lead;
   if(r.reason==="Both") lead=`A quick reminder that your ${pk} expires on ${exp} — and it looks like you're down to your last session or two. Pop in to make the most of them before then! `;
   else if(r.reason==="Low-credit") lead=`Hope you've been enjoying the heat! It looks like you're down to your last session or two on your ${pk} — pop in to make the most of them while your pack is active. `;
   else lead=`A quick reminder that your ${pk} expires on ${exp}. There's still time to enjoy your remaining sessions before then! `;
-  return `Hi ${nm}! This is Sauna Bath House. `+lead+OFFERS;
+  return `Hi ${nm}! This is Sauna Bath House. `+lead+OFFERS+APP_TIP;
 }
 
 /* ---------- render ---------- */
