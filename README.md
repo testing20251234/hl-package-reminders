@@ -26,21 +26,33 @@ Worklist = **all active packs** (precheck vets everything); `days_left` + `reaso
 
 ## Ingest / refresh (every ~2 weeks)
 
-The pipeline currently lives in the thinking-system session
-(`sessions/session-20260525-1029-package-expiry-reminders/`). Drop the new export +
-check-in CSV in `inbox/`, then run in order:
+The pipeline is self-contained under [`pipeline/`](pipeline/). Drop the fresh Hapana
+transactions export + check-in export into `pipeline/data/inbox/`, then run **from the
+`pipeline/` directory** in order:
 
 ```
+cd pipeline
 python3 push_raw.py           # raw transactions -> cloud (dedup by invoice_no+status), pulls deduped set back
 python3 ingest_ledger.py      # check-ins -> local ledger (usage/phone proxy)
 python3 compute_expiry.py     # map desc->pack, filter, net refunds, compute expiry, join phone
 python3 compute_usage.py      # check-in usage proxy + credits-left + low-credit flag
-python3 push_to_supabase.py   # UPSERT reminder_packs (creds from attendance-bot/.env)
+python3 push_to_supabase.py   # UPSERT reminder_packs
 ```
+
+**Paths & creds** ([`pipeline/_paths.py`](pipeline/_paths.py)): everything anchors to
+the `pipeline/` folder. Data + outputs live in `pipeline/data/` (gitignored — it holds
+customer PII). Credentials are found, in order: `pipeline/data/.env` →
+`$HL_REMINDER_ENV` → the legacy `attendance-bot/.env`. The service key is **never**
+committed. A guardrail (`assert_reminder_project`) refuses to run against any project
+other than the reminder DB (`geheirnfbhqnhrjmrrax`), so the Stripe project can't be hit
+by accident. Override data/inbox locations with `HL_REMINDER_DATA` / `HL_REMINDER_INBOX`.
 
 Overlapping uploads are safe: raw dedup is enforced in the cloud by the
 `(invoice_no, payment_status)` primary key, and `reminder_packs` by `invoice_no`.
 Only `reminder_packs` is upserted; staff edits in `reminder_state` are never overwritten.
+
+> **Pipeline data is PII and stays out of git.** `pipeline/data/` and all `*.csv`
+> (except the mapping config) are gitignored. This repo is public — code only, no data.
 
 ## Deploy (one-time)
 
