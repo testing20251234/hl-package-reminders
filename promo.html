@@ -108,7 +108,9 @@ const STAGES = ["To send","No phone","Sent","Skip"];
 
 let ROWS = [], TAB = "To send", WHO = "", ME = "", OPEN = null;
 let SENT_TODAY = 0;                 // combined WhatsApp sends today (expiry + promo), SGT
-const WARN_AT = 20;                 // ban-safety brake: warn staff past this many/day
+const WARN_AT = 50;                 // ban-safety brake: warn staff past this many/day
+const MIN_GAP_SECONDS = 45;         // pacing: nudge staff to space sends ~45s apart
+let LAST_SEND_TS = 0;               // time of last send this session (for pacing)
 
 /* ---------- auth (same shared login as the expiry worklist) ---------- */
 async function init(){
@@ -240,11 +242,20 @@ async function upsert(patch){
   return true;
 }
 function noteVal(i){ const e=document.getElementById('f-notes-'+i); return e?(e.value||null):undefined; }
+// pacing nudge: discourage rapid-fire sends (looks like spam to WhatsApp)
+function paceOk(){
+  const gap = (Date.now()-LAST_SEND_TS)/1000;
+  if(LAST_SEND_TS && gap < MIN_GAP_SECONDS)
+    return confirm(`Only ${Math.round(gap)}s since your last send. Sending too fast looks like spam to WhatsApp — best to wait ~${MIN_GAP_SECONDS}s between messages.\n\nSend anyway?`);
+  return true;
+}
 async function markSent(i){
+  if(!paceOk()) return;
   if(SENT_TODAY >= WARN_AT && !confirm(`You've already sent ${SENT_TODAY} WhatsApp messages today from this number (expiry + promo combined).\n\nSending more raises the risk WhatsApp flags or bans the number. Send anyway?`)) return;
   const r = ROWS[i];
   if(await upsert({email:r.email, promo_sent_at:new Date().toISOString(), promo_sent_by:who(), notes:noteVal(i)})){
-    toast("Marked sent ✓"); await load();
+    LAST_SEND_TS = Date.now();
+    toast(`Marked sent ✓ — wait ~${MIN_GAP_SECONDS}s before the next`); await load();
   }
 }
 async function unsend(i){
