@@ -104,14 +104,14 @@
   </header>
 
   <div class="search-card">
-    <label for="q">Customer phone (or paste anything — we'll strip spaces and country code)</label>
+    <label for="q">Search by phone, email, or name — we'll figure out which</label>
     <div class="search-row">
-      <input id="q" type="tel" inputmode="tel" placeholder="e.g. 9123 4567 or +65 9123 4567"
+      <input id="q" type="text" inputmode="search" placeholder="9123 4567 · jane@email.com · Jane Tan"
              autocomplete="off" autocapitalize="off"
              oninput="onQuery()" onkeydown="if(event.key==='Enter')search()">
       <button class="btn" onclick="search()">Search</button>
     </div>
-    <div class="hint" id="hint">Digits-only key: <span id="key">—</span></div>
+    <div class="hint" id="hint">Type to search.</div>
   </div>
 
   <div id="result"></div>
@@ -156,38 +156,139 @@ async function signIn(){
 function who(){ const v=(document.getElementById('who')?.value||'').trim(); return v || ME; }
 async function signOut(){ await sb.auth.signOut(); location.reload(); }
 
-/* ---------- phone normalisation ---------- */
-// Strip everything non-digit. Strip a leading "65" country code so a customer who
-// types "9123 4567" and one who types "+65 9123 4567" hit the same key.
+/* ---------- input normalisation + type detect ---------- */
+// Strip everything non-digit. Strip a leading "65" country code so "9123 4567"
+// and "+65 9123 4567" hit the same key.
 function normPhone(raw){
   let d = (raw||'').replace(/\D/g,'');
   if(d.length>8 && d.startsWith('65')) d = d.slice(2);
   return d;
 }
+// junk phones to hide from candidate pickers (real values seen in Hapana exports)
+function isJunkPhone(d){
+  if(!d || d.length < 7) return true;
+  if(/^0+$/.test(d) || /^1+$/.test(d)) return true;
+  if(d === '10000000000' || d === '88888888' || d === '6588888888') return true;
+  return false;
+}
+function detectType(raw){
+  const s = (raw||'').trim();
+  if(!s) return null;
+  if(s.includes('@')) return 'email';
+  if(/^[\d\s+\-()]+$/.test(s)) return 'phone';
+  return 'name';
+}
 function onQuery(){
   const raw = document.getElementById('q').value;
-  document.getElementById('key').textContent = normPhone(raw) || '—';
+  const t = detectType(raw);
+  const h = document.getElementById('hint');
+  if(!t){ h.textContent = 'Type to search.'; return; }
+  if(t === 'phone'){ const k = normPhone(raw); h.innerHTML = `Searching by <b>phone</b> — digits-only key: <b>${k||'—'}</b>`; return; }
+  if(t === 'email'){ h.innerHTML = `Searching by <b>email</b> — partial match OK.`; return; }
+  h.innerHTML = `Searching by <b>name</b> — partial match OK (first or last name).`;
 }
 
-/* ---------- search ---------- */
+/* ---------- search dispatch ---------- */
 async function search(){
-  const raw = document.getElementById('q').value;
-  const key = normPhone(raw);
+  const raw = (document.getElementById('q').value || '').trim();
   const out = document.getElementById('result');
-  if(!key || key.length < 6){ out.innerHTML = `<div class="empty">Enter at least 6 digits.</div>`; return; }
+  if(!raw){ out.innerHTML = ''; return; }
 
-  // 1) Is this phone already redeemed?
+  const type = detectType(raw);
+  if(type === 'phone'){
+    const key = normPhone(raw);
+    if(key.length < 6){ out.innerHTML = `<div class="empty">Enter at least 6 digits.</div>`; return; }
+    return loadByPhone(key);
+  }
+
+  // email or name → broad search, possibly multi-match
+  const candidates = await findCandidates(raw, type);
+  if(candidates.length === 0){
+    out.innerHTML = `<div class="empty">No customer found for "${esc(raw)}".<br>They may not have a pack yet — search by phone to redeem them as a new customer.</div>`;
+    return;
+  }
+  if(candidates.length === 1 && candidates[0].phone){
+    return loadByPhone(candidates[0].phone);
+  }
+  out.innerHTML = renderPicker(candidates);
+}
+
+// resolve a phone to the full redeemed-status + pack-context view (original flow)
+async function loadByPhone(key){
+  const out = document.getElementById('result');
   const {data:rs, error:rsErr} = await sb.from('redemption_state').select('*').eq('phone', key).maybeSingle();
   if(rsErr){ toast("Lookup error: "+rsErr.message); return; }
-
-  // 2) Any matching pack records (context for staff — same digits-only match).
-  //   reminder_packs.phone is stored with formatting variations; match on digits-only suffix.
   const {data:packs, error:pkErr} = await sb.from('reminder_packs').select('customer,pack,invoice_date,est_expiry,phone,email,status').limit(500);
   if(pkErr){ toast("Pack lookup error: "+pkErr.message); return; }
   const matched = (packs||[]).filter(p => normPhone(p.phone) === key)
                              .sort((a,b)=> (b.invoice_date||'').localeCompare(a.invoice_date||''));
-
   out.innerHTML = renderResult(key, rs, matched);
+}
+
+// Broad email/name search across reminder_packs + redemption_state. Dedupe by phone;
+// junk phones (no-contact placeholders) are dropped so they don't clutter the picker.
+async function findCandidates(raw, type){
+  const term = '%' + raw.replace(/[%_\\]/g, '\\$&') + '%';
+  const packCol = type === 'email' ? 'email' : 'customer';
+  const rsCol   = type === 'email' ? 'email' : 'name';
+
+  const [packResp, redResp] = await Promise.all([
+    sb.from('reminder_packs').select('customer,phone,email,pack,invoice_date').ilike(packCol, term).limit(50),
+    sb.from('redemption_state').select('phone,name,email,redeemed_at').ilike(rsCol, term).limit(50),
+  ]);
+
+  const byPhone = new Map();
+  for(const p of (packResp.data || [])){
+    const phone = normPhone(p.phone);
+    if(isJunkPhone(phone)) continue;
+    const cur = byPhone.get(phone);
+    // keep the row with the latest invoice_date as the canonical pack snapshot
+    if(!cur || (p.invoice_date||'') > (cur.invoice_date||'')){
+      byPhone.set(phone, {
+        phone, name: p.customer || (cur && cur.name) || null,
+        email: p.email || (cur && cur.email) || null,
+        pack: p.pack, invoice_date: p.invoice_date,
+        already_redeemed: cur ? cur.already_redeemed : false,
+        redeemed_at: cur ? cur.redeemed_at : null,
+      });
+    }
+  }
+  for(const r of (redResp.data || [])){
+    const phone = normPhone(r.phone);
+    if(isJunkPhone(phone)) continue;
+    const cur = byPhone.get(phone) || {phone, name: r.name, email: r.email, pack: null, invoice_date: null};
+    cur.already_redeemed = true;
+    cur.redeemed_at = r.redeemed_at;
+    cur.name  = cur.name  || r.name;
+    cur.email = cur.email || r.email;
+    byPhone.set(phone, cur);
+  }
+
+  return Array.from(byPhone.values())
+              .sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+}
+
+function renderPicker(candidates){
+  return `<div class="result">
+    <div class="status none">${candidates.length} match${candidates.length>1?'es':''} — tap one</div>
+    <div style="margin-top:6px">
+      ${candidates.map(c => `
+        <div class="pick-row" onclick="loadByPhone('${esc(c.phone)}')"
+             style="cursor:pointer;padding:11px 4px;border-bottom:1px dashed var(--line);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center">
+          <div>
+            <div style="font-size:16px;font-weight:600">${esc(c.name || c.phone)}</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:2px">
+              ${esc(c.phone)}${c.email ? ` · ${esc(c.email)}` : ''}${c.pack ? ` · ${esc((c.pack||'').split(' (')[0])}` : ''}
+            </div>
+          </div>
+          <div>${c.already_redeemed
+            ? `<span class="status done" style="margin:0;font-size:12.5px">Redeemed</span>`
+            : `<span class="status ok" style="margin:0;font-size:12.5px">Eligible</span>`}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
 }
 
 function renderResult(key, rs, matched){
