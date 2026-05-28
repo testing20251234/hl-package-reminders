@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coffee Redemption · House Longevity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f1ea; --card:#fffdf9; --ink:#2a2018; --muted:#8a7c6c; --line:#e4d9c8;
+    --accent:#8b5a3c; --accent-soft:#f0e4d8; --red:#b4452f; --red-bg:#f6dcd4;
+    --amber:#b07d2a; --amber-bg:#f6e8cc; --green:#5d7a4f; --green-bg:#e6eddf;
+    --radius:15px; --serif:'Newsreader',Iowan,Charter,Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);
+       font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .wrap{max-width:780px;margin:0 auto;padding:22px 20px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-size:26px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14.5px;margin:2px 0 18px}
+  .who{font-size:13.5px;color:var(--muted)}
+  .who a{cursor:pointer;text-decoration:underline}
+  button{font-family:var(--serif);cursor:pointer}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:14.5px}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+  .btn.sm{padding:5px 10px;font-size:13px;border-radius:8px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  /* search */
+  .search-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+       padding:18px 20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(139,90,60,.05)}
+  .search-card label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .search-row{display:flex;gap:10px;align-items:stretch}
+  .search-row input{flex:1;font-family:var(--serif);font-size:18px;letter-spacing:.02em;
+       padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  .search-row input:focus{outline:none;border-color:var(--accent)}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+  /* result block */
+  .result{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+       padding:18px 20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(139,90,60,.05)}
+  .status{display:inline-block;font-size:13.5px;padding:4px 12px;border-radius:20px;font-weight:600;margin-bottom:10px}
+  .status.ok{background:var(--green-bg);color:var(--green)}
+  .status.done{background:var(--accent-soft);color:var(--accent)}
+  .status.none{background:#ece4d8;color:var(--muted)}
+  .who-name{font-size:20px;font-weight:600;margin:0 0 2px}
+  .meta{font-size:13.5px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:14px 0}
+  .fld label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .fld input{width:100%;font-family:var(--serif);font-size:14.5px;padding:8px 10px;
+       border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  .actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .stamp{font-size:12.5px;color:var(--muted)}
+  .pack-list{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .pack-list h4{margin:0 0 8px;font-size:13.5px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+  .pack{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+  .pack:last-child{border-bottom:none}
+  .pack .p-pack{flex:1}
+  .pack .p-date{color:var(--muted);white-space:nowrap}
+  /* recent */
+  .recent{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+       padding:14px 18px;box-shadow:0 1px 2px rgba(139,90,60,.05)}
+  .recent h3{font-size:14px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px}
+  .r-row{display:grid;grid-template-columns:1fr auto;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .r-row:last-child{border-bottom:none}
+  .r-row .r-when{color:var(--muted);font-size:12.5px;white-space:nowrap}
+  /* login */
+  .login{max-width:380px;margin:9vh auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:30px 28px;text-align:center;box-shadow:0 4px 16px rgba(139,90,60,.08)}
+  .login h2{font-weight:600;margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 18px}
+  .login input{width:100%;padding:11px 13px;font-size:15px;font-family:var(--serif);border:1px solid var(--line);border-radius:10px;margin-bottom:11px}
+  .login .btn{width:100%}
+  .note{font-size:12.5px;color:var(--muted);margin-top:14px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .empty{text-align:center;color:var(--muted);padding:30px 0;font-size:14.5px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div id="login" class="login hidden">
+  <h2>Coffee Redemption</h2>
+  <p>Staff sign-in.</p>
+  <input id="email" type="email" value="sbhadmin@houselongevity.com" autocomplete="username">
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password"
+         onkeydown="if(event.key==='Enter')signIn()">
+  <button class="btn" onclick="signIn()">Sign in</button>
+  <div class="note" id="loginNote"></div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header>
+    <div>
+      <h1>Coffee Redemption</h1>
+      <div class="sub" id="sub">Type the customer's phone — we'll check if they've already redeemed.</div>
+    </div>
+    <div class="who">
+      Your initials:
+      <input id="who" placeholder="e.g. ZW" style="width:64px;padding:3px 7px;border:1px solid var(--line);border-radius:7px;font-family:var(--serif)" oninput="localStorage.setItem('who',this.value)">
+      · <a href="index.html">Expiry worklist</a>
+      · <a href="promo.html">Promo</a>
+      · <a onclick="signOut()">sign out</a>
+    </div>
+  </header>
+
+  <div class="search-card">
+    <label for="q">Customer phone (or paste anything — we'll strip spaces and country code)</label>
+    <div class="search-row">
+      <input id="q" type="tel" inputmode="tel" placeholder="e.g. 9123 4567 or +65 9123 4567"
+             autocomplete="off" autocapitalize="off"
+             oninput="onQuery()" onkeydown="if(event.key==='Enter')search()">
+      <button class="btn" onclick="search()">Search</button>
+    </div>
+    <div class="hint" id="hint">Digits-only key: <span id="key">—</span></div>
+  </div>
+
+  <div id="result"></div>
+
+  <div class="recent">
+    <h3>Recent redemptions</h3>
+    <div id="recent"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://geheirnfbhqnhrjmrrax.supabase.co";
+const SUPABASE_KEY = "sb_publishable_gA4Ag-16NUpoObMUqBU4RA_Xe0BrRwM";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let ME = "";
+
+/* ---------- auth (shared login with index.html / promo.html) ---------- */
+async function init(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(session){ showApp(session); } else { document.getElementById('login').classList.remove('hidden'); }
+  sb.auth.onAuthStateChange((_e,s)=>{ if(s){ showApp(s);} });
+}
+function showApp(session){
+  ME = session.user.email;
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  const w = document.getElementById('who'); if(w) w.value = localStorage.getItem('who') || '';
+  loadRecent();
+  document.getElementById('q').focus();
+}
+async function signIn(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if(!email || !password){ document.getElementById('loginNote').textContent = "Enter email and password."; return; }
+  const {error} = await sb.auth.signInWithPassword({email, password});
+  if(error) document.getElementById('loginNote').textContent = "Error: " + error.message;
+}
+function who(){ const v=(document.getElementById('who')?.value||'').trim(); return v || ME; }
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+/* ---------- phone normalisation ---------- */
+// Strip everything non-digit. Strip a leading "65" country code so a customer who
+// types "9123 4567" and one who types "+65 9123 4567" hit the same key.
+function normPhone(raw){
+  let d = (raw||'').replace(/\D/g,'');
+  if(d.length>8 && d.startsWith('65')) d = d.slice(2);
+  return d;
+}
+function onQuery(){
+  const raw = document.getElementById('q').value;
+  document.getElementById('key').textContent = normPhone(raw) || '—';
+}
+
+/* ---------- search ---------- */
+async function search(){
+  const raw = document.getElementById('q').value;
+  const key = normPhone(raw);
+  const out = document.getElementById('result');
+  if(!key || key.length < 6){ out.innerHTML = `<div class="empty">Enter at least 6 digits.</div>`; return; }
+
+  // 1) Is this phone already redeemed?
+  const {data:rs, error:rsErr} = await sb.from('redemption_state').select('*').eq('phone', key).maybeSingle();
+  if(rsErr){ toast("Lookup error: "+rsErr.message); return; }
+
+  // 2) Any matching pack records (context for staff — same digits-only match).
+  //   reminder_packs.phone is stored with formatting variations; match on digits-only suffix.
+  const {data:packs, error:pkErr} = await sb.from('reminder_packs').select('customer,pack,invoice_date,est_expiry,phone,email,status').limit(500);
+  if(pkErr){ toast("Pack lookup error: "+pkErr.message); return; }
+  const matched = (packs||[]).filter(p => normPhone(p.phone) === key)
+                             .sort((a,b)=> (b.invoice_date||'').localeCompare(a.invoice_date||''));
+
+  out.innerHTML = renderResult(key, rs, matched);
+}
+
+function renderResult(key, rs, matched){
+  const displayName = (rs && rs.name) || (matched[0] && matched[0].customer) || '';
+  const prefillEmail = (rs && rs.email) || (matched[0] && matched[0].email) || '';
+  const isRedeemed = !!rs;
+
+  let statusHTML, actionHTML;
+  if(isRedeemed){
+    statusHTML = `<div class="status done">Already redeemed</div>`;
+    actionHTML = `
+      <div class="stamp">
+        Redeemed on <b>${esc(rs.redeemed_at.slice(0,10))}</b>
+        ${rs.redeemed_by ? `by ${esc(rs.redeemed_by.split('@')[0])}` : ''}
+        ${rs.notes ? ` · ${esc(rs.notes)}` : ''}
+      </div>
+      <div class="actions">
+        <button class="btn ghost sm" onclick="undo('${key}')">Undo redemption</button>
+      </div>`;
+  } else {
+    statusHTML = `<div class="status ok">Eligible — not yet redeemed</div>`;
+    actionHTML = `
+      <div class="grid">
+        <div class="fld"><label>Name (for the record)</label>
+          <input id="r-name" value="${esc(displayName)}" placeholder="customer name"></div>
+        <div class="fld"><label>Email (optional)</label>
+          <input id="r-email" value="${esc(prefillEmail)}" placeholder="—"></div>
+        <div class="fld"><label>Notes (optional)</label>
+          <input id="r-notes" placeholder="e.g. flat white"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="redeem('${key}')">☕ Mark redeemed — free coffee</button>
+      </div>`;
+  }
+
+  const packHTML = matched.length
+    ? `<div class="pack-list">
+         <h4>${matched.length} matching pack record${matched.length>1?'s':''}</h4>
+         ${matched.map(p => `<div class="pack">
+            <div class="p-pack">${esc((p.pack||'').split(' (')[0])}<span style="color:var(--muted)"> · ${esc(p.status||'')}</span></div>
+            <div class="p-date">${esc(p.invoice_date||'')} → ${esc(p.est_expiry||'')}</div>
+          </div>`).join('')}
+       </div>`
+    : `<div class="pack-list"><h4>No pack records found for this phone</h4>
+         <div class="stamp">That's fine — they can still redeem. The app on their phone is the proof of install.</div></div>`;
+
+  return `<div class="result">
+    ${statusHTML}
+    <div class="who-name">${esc(displayName || 'Unknown name')}</div>
+    <div class="meta">Phone key: <b>${esc(key)}</b></div>
+    ${actionHTML}
+    ${packHTML}
+  </div>`;
+}
+
+/* ---------- writes ---------- */
+async function redeem(key){
+  const name  = (document.getElementById('r-name')?.value || '').trim() || null;
+  const email = (document.getElementById('r-email')?.value || '').trim() || null;
+  const notes = (document.getElementById('r-notes')?.value || '').trim() || null;
+  const row = {
+    phone: key, name, email, notes,
+    redeemed_at: new Date().toISOString(),
+    redeemed_by: who(),
+    updated_at:  new Date().toISOString(),
+  };
+  const {error} = await sb.from('redemption_state').insert(row);
+  if(error){
+    if(error.code === '23505') toast("Already redeemed earlier today — refreshing.");
+    else { toast("Save error: "+error.message); return; }
+  } else {
+    toast("☕ Coffee redeemed ✓");
+  }
+  await search();
+  loadRecent();
+}
+async function undo(key){
+  if(!confirm("Undo the redemption for "+key+"? They'll be eligible again.")) return;
+  const {error} = await sb.from('redemption_state').delete().eq('phone', key);
+  if(error){ toast("Undo error: "+error.message); return; }
+  toast("Redemption undone");
+  await search();
+  loadRecent();
+}
+
+/* ---------- recent list ---------- */
+async function loadRecent(){
+  const {data,error} = await sb.from('redemption_state').select('*').order('redeemed_at',{ascending:false}).limit(20);
+  if(error){ document.getElementById('recent').innerHTML = `<div class="empty">Couldn't load: ${esc(error.message)}</div>`; return; }
+  const list = data || [];
+  if(!list.length){ document.getElementById('recent').innerHTML = `<div class="empty">No redemptions yet.</div>`; return; }
+  document.getElementById('recent').innerHTML = list.map(r => `
+    <div class="r-row">
+      <div><b>${esc(r.name || r.phone)}</b>
+        ${r.name ? `<span style="color:var(--muted)"> · ${esc(r.phone)}</span>` : ''}
+        ${r.redeemed_by ? `<span style="color:var(--muted)"> · by ${esc(r.redeemed_by.split('@')[0])}</span>` : ''}
+        ${r.notes ? `<span style="color:var(--muted)"> · ${esc(r.notes)}</span>` : ''}
+      </div>
+      <div class="r-when">${esc(r.redeemed_at.slice(0,16).replace('T',' '))}</div>
+    </div>`).join('');
+}
+
+/* ---------- util ---------- */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let toastT; function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+init();
+</script>
+</body>
+</html>
